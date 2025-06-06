@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBot Web</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+    .chat-container {
+      display: flex;
+      height: 100vh;
+    }
+    .chat-sidebar {
+      width: 250px;
+      background-color: #f8f9fa;
+      border-right: 1px solid #dee2e6;
+      padding: 1rem;
+    }
+    .chat-main {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-messages {
+      flex-grow: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background-color: #f1f1f1;
+    }
+    .chat-input {
+      padding: 1rem;
+      border-top: 1px solid #dee2e6;
+      background-color: white;
+    }
+    .message {
+      margin-bottom: 1rem;
+      max-width: 70%;
+      padding: 0.5rem 1rem;
+      border-radius: 15px;
+      display: inline-block;
+    }
+    .message.user {
+      background-color: #d1e7dd;
+      align-self: flex-end;
+      text-align: right;
+    }
+    .message.bot {
+      background-color: #e2e3e5;
+      align-self: flex-start;
+      text-align: left;
+    }
+    .dark-mode {
+      background-color: #121212 !important;
+      color: #e0e0e0 !important;
+    }
+    .dark-mode .chat-sidebar {
+      background-color: #1f1f1f !important;
+      color: white;
+    }
+    .dark-mode .chat-main, .dark-mode .chat-input, .dark-mode .chat-header {
+      background-color: #1c1c1c !important;
+      color: white;
+    }
+    .dark-mode .message.user {
+      background-color: #225c50 !important;
+    }
+    .dark-mode .message.bot {
+      background-color: #3a3a3a !important;
+    }
+    .btn-user-icon {
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .chat-sidebar li {
+      cursor: pointer;
+    }
+    .chat-sidebar li.active {
+      background-color: #0d6efd;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-sidebar">
+      <h5>Historial</h5>
+      <ul class="list-group" id="chat-history"></ul>
+      <button class="btn btn-success btn-sm mt-3" onclick="createConversation()">Nueva Conversación</button>
+    </div>
+
+    <div class="chat-main">
+      <div class="chat-header bg-light">
+        <h5 class="mb-0" id="chat-title">ChatBot</h5>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-secondary btn-user-icon">
+            <i class="fas fa-user"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-dark" onclick="toggleDarkMode()">
+            <i class="fas fa-moon"></i>
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="configDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              Configuración
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="configDropdown">
+              <li><a class="dropdown-item" href="#">Cambiar idioma</a></li>
+              <li><a class="dropdown-item" href="#">Cambiar nombre del bot</a></li>
+              <li><a class="dropdown-item" href="#">Ver ayuda</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-messages d-flex flex-column" id="chat-messages"></div>
+
+      <div class="chat-input">
+        <div class="input-group">
+          <input type="text" id="user-input" class="form-control" placeholder="Escribe tu mensaje..." onkeydown="if (event.key === 'Enter') sendMessage()">
+          <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Para manejar CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            for (let cookie of document.cookie.split(';')) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let conversations = JSON.parse(localStorage.getItem('conversations')) || {};
+    let currentConversation = localStorage.getItem('currentConversation') || null;
+
+    function renderConversationList() {
+      const chatHistory = document.getElementById('chat-history');
+      chatHistory.innerHTML = '';
+      for (const id in conversations) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.classList.toggle('active', id === currentConversation);
+        li.textContent = conversations[id].name;
+        li.onclick = () => switchConversation(id);
+
+        const actions = document.createElement('div');
+
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'btn btn-sm btn-outline-warning me-1';
+        renameBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        renameBtn.onclick = (e) => {
+          e.stopPropagation();
+          const newName = prompt('Nuevo nombre:');
+          if (newName) {
+            conversations[id].name = newName;
+            saveConversations();
+            renderConversationList();
+          }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm('¿Eliminar esta conversación?')) {
+            delete conversations[id];
+            if (id === currentConversation) currentConversation = null;
+            saveConversations();
+            renderConversationList();
+            loadMessages();
+          }
+        };
+
+        actions.appendChild(renameBtn);
+        actions.appendChild(deleteBtn);
+        li.appendChild(actions);
+        chatHistory.appendChild(li);
+      }
+    }
+
+    function createConversation() {
+      const id = 'conv_' + Date.now();
+      conversations[id] = { name: 'Nueva conversación', messages: [] };
+      currentConversation = id;
+      saveConversations();
+      renderConversationList();
+      loadMessages();
+    }
+
+    function switchConversation(id) {
+      currentConversation = id;
+      localStorage.setItem('currentConversation', id);
+      renderConversationList();
+      loadMessages();
+    }
+
+    function saveConversations() {
+      localStorage.setItem('conversations', JSON.stringify(conversations));
+      localStorage.setItem('currentConversation', currentConversation);
+    }
+
+    function loadMessages() {
+      const messagesContainer = document.getElementById('chat-messages');
+      messagesContainer.innerHTML = '';
+      if (!currentConversation || !conversations[currentConversation]) return;
+      document.getElementById('chat-title').textContent = conversations[currentConversation].name;
+      conversations[currentConversation].messages.forEach(({ sender, text }) => {
+        const msg = document.createElement('div');
+        msg.className = `message ${sender}`;
+        msg.textContent = text;
+        messagesContainer.appendChild(msg);
+      });
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+      console.log("iniciando2...");
+      const input = document.getElementById('user-input');
+      const messageText = input.value.trim();
+      if (!messageText || !currentConversation) return;
+
+      // Muestra mensaje del usuario
+      conversations[currentConversation].messages.push({ sender: 'user', text: messageText });
+      saveConversations();
+      loadMessages();
+      input.value = '';
+
+      try {
+        console.log("iniciando...");
+        const response = await fetch('/chats/message/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: new URLSearchParams({ message: messageText })
+        });
+        const data = await response.json();
+        
+        console.log("hola mundo");
+        console.log(data);
+        conversations[currentConversation].messages.push({ sender: 'bot', text: data.response || 'Error al obtener respuesta.' });
+      } catch (error) {
+        conversations[currentConversation].messages.push({ sender: 'bot', text: 'Error en el servidor.' });
+      }
+
+      saveConversations();
+      loadMessages();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    window.onload = () => {
+      renderConversationList();
+      loadMessages();
+    };
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
