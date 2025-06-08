@@ -17,7 +17,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
-            return HttpResponseRedirect(reverse("chat:chats"))
+            return HttpResponseRedirect(reverse("chat:chat_view"))
         else:
             return render(request, 'index/login.html', {"msj":"Los datos ingresados son incorrectos"})
     return render(request, 'index/login.html')

@@ -44,8 +44,13 @@ def chat_detalle(request, id):
     if not request.user.is_authenticated:
         return redirect(reverse("index:login"))
     
+    # Intentamos obtener la conversación
+    try:
+        current_conversation = Conversation.objects.get(id=id)
+    except Conversation.DoesNotExist:
+        return redirect(reverse("index:login"))
+    
     conversations = Conversation.objects.filter(user=request.user)
-    current_conversation = get_object_or_404(conversations, id=id)
     messages = Message.objects.filter(conversation=current_conversation)
 
     return render(request, 'chat/chat_detalle.html', {

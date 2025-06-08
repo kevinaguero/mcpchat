@@ -7,46 +7,54 @@
   <title>{% block titulo %}{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="{% static 'css/chat.css' %}">
 </head>
 <body>
   <div class="chat-container">
-    <div class="chat-sidebar">
-      <h5>Historial</h5>
-      <ul class="list-group" id="chat-history">
+    <div class="chat-sidebar" id="sidebar">
+      
+      <a href="{% url 'chat:chat_view' %}" class="conversation-button d-block text-decoration-none">
+        <h4>💬 Chat OSEP</h4>
+      </a>
+      <h5>Historial de chats</h5>
+
+      <ul class="list-unstyled" id="chat-history">
         
       </ul>
-      <button class="btn btn-success btn-sm mt-3" onclick="createConversation()">Nuevo chat</button>
+      <button class="btn btn-light btn-sm w-100 mt-3" onclick="createConversation()">+ Nueva conversación</button>
     </div>
 
     <div class="chat-main">
       <div class="chat-header bg-light">
-        <h5 class="mb-0" id="chat-title">ChatBot</h5>
+        <button class="btn btn-sm btn-outline-secondary btn-user-icon" id="toggleSidebarBtn" type="button" onclick="toggleSidebar()" data-bs-toggle="tooltip" title="Ocultar barra lateral">
+            <i class="bi bi-list"></i>
+        </button>
+        <h5 class="mb-0" id="chat-title">
+          {% if current_conversation %}
+            {{ current_conversation }}
+          {% else %}
+            Hola! ¿En qué te puedo ayudar?
+          {% endif %}
+        </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary btn-user-icon" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="fas fa-user"></i>
             </button>
             <ul class="dropdown-menu" aria-labelledby="accountDropdown">
-              {% if user.is_authenticated %}
                 <li><a class="dropdown-item" href="{% url 'index:recuperar_contraseña' %}">Cambiar contraseña</a><li>
                 <li><a class="dropdown-item" href="{% url 'index:logout' %}">Cerrar sesion</a><li>
-              {% endif %}
             </ul>
           </div>
-          <button class="btn btn-sm btn-outline-dark" onclick="toggleDarkMode()">
-            <i class="fas fa-moon"></i>
+          <button class="btn btn-sm btn-outline-secondary btn-user-icon" type="button" onclick="toggleDarkMode()">
+              <i class="fas fa-moon"></i>
           </button>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="configDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-              Configuración
+          {% if user.is_superuser %}
+            <button class="btn btn-sm btn-outline-secondary btn-user-icon" type="button" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                <i class="bi bi-gear"></i>
             </button>
-            <ul class="dropdown-menu" aria-labelledby="configDropdown">
-              <li><a class="dropdown-item" href="#">Cambiar idioma</a></li>
-              <li><a class="dropdown-item" href="#">Cambiar nombre del bot</a></li>
-              <li><a class="dropdown-item" href="#">Ver ayuda</a></li>
-            </ul>
-          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -55,191 +63,51 @@
     </div>
   </div>
 
+  <!-- Modal de Configuración -->
+  {% if user.is_superuser %}
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="settingsModalLabel">Configuración del ChatBot</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="settingsForm">
+              <div class="mb-3">
+                <label for="systemPrompt" class="form-label">Prompt del sistema</label>
+                <input type="text" class="form-control" id="systemPrompt" maxlength="100">
+              </div>
+              <div class="mb-3">
+                <label for="temperature" class="form-label">Temperatura</label>
+                <input type="number" class="form-control" id="temperature" min="0" max="2" step="0.1">
+              </div>
+              <div class="mb-3">
+                <label for="modelSelect" class="form-label">Modelo GPT</label>
+                <select class="form-select" id="modelSelect">
+                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-3.5">GPT-3.5</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="fileUpload" class="form-label">Subir documentos PDF</label>
+                <input class="form-control" type="file" id="fileUpload" multiple accept="application/pdf">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="saveSettingsBtn">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
   {% block js%}{% endblock %}
 
-  <script>
-    // Función para extraer CSRF de las cookies
-    function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim();
-          if (cookie.startsWith(name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-          }
-          }
-      }
-      return cookieValue;
-    }
-
-    const csrftoken = getCookie('csrftoken');
-    let current_conversation = "{{current_conversation.id}}" || null;
-
-    async function fetchConversations() {
-      const res = await fetch('/chats/conversations/');
-      const data = await res.json();
-      renderConversationList(data);
-    }
-
-    function renderConversationList(conversations) {
-      const chatHistory = document.getElementById('chat-history');
-      chatHistory.innerHTML = '';
-      conversations.forEach(conv => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item';
-        li.textContent = conv.name;
-        li.onclick = () => {
-          window.location.href = `/chats/${conv.id}`;
-          document.getElementById('chat-title').textContent = conv.name;
-          //loadMessages(conv.id);
-        };
-
-        const actions = document.createElement('div');
-
-        const renameBtn = document.createElement('button');
-        renameBtn.className = 'btn btn-sm btn-outline-warning me-1';
-        renameBtn.innerHTML = '<i class="fas fa-edit"></i>';
-        renameBtn.onclick = async (e) => {
-          e.stopPropagation();
-          id_conv = conv.id
-          const newName = prompt('Nuevo nombre:');
-          if (newName) {
-            //conversations[conv.id].name = newName;
-            const res = await fetch(`/chats/edit/${id_conv}`, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/x-www-form-urlencoded',
-              'X-CSRFToken': csrftoken},
-              body: `newname=${newName}`
-            });
-            const conv = await res.json();
-            await fetchConversations();
-            //window.location.href = `/chats/edit/${conv.id}`;
-            //renderConversationList();
-          }
-        };
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-sm btn-outline-danger';
-        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-        deleteBtn.onclick = async (e) => {
-          e.stopPropagation();
-          id_conv = conv.id
-          if (confirm('¿Eliminar esta conversación?')) {
-            const res = await fetch(`/chats/delete/${id_conv}`, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/x-www-form-urlencoded',
-              'X-CSRFToken': csrftoken}
-            });
-            const conv = await res.json();
-            await fetchConversations();
-          }
-        };
-
-        actions.appendChild(renameBtn);
-        actions.appendChild(deleteBtn);
-        li.appendChild(actions);
-
-        chatHistory.appendChild(li);
-      });
-    }
-
-    async function createConversation() {
-      const res = await fetch('/chats/create/', {
-        method: 'POST',
-        headers: {'X-CSRFToken': csrftoken}
-      });
-      const conv = await res.json();
-      await fetchConversations();
-      current_conversation = conv.id;
-      window.location.href = `/chats/${current_conversation}`;
-      //loadMessages(currentConversation);
-    }
-
-    async function loadMessages(conversationId) {
-      const res = await fetch(`/chats/${conversationId}`);
-      const html = await res.text();
-      document.open();
-      document.write(html);
-      document.close();
-    }
-
-    async function sendMessage() {
-      const input = document.getElementById('user-input');
-      const message = input.value;
-
-      appendMessage('user', message);
-      input.value = '';
-
-      try {
-        const res = await fetch('/chats/message/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            //'X-CSRFToken': csrftoken
-          },
-          body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
-        });
-
-        const data = await res.json();
-        appendMessage('bot', data.response);
-      } catch (error) {
-        appendMessage('bot', 'Error en el servidor.');
-      }   
-    }
-
-    function appendMessage(sender, content) {
-      const chatMessages = document.getElementById('chat-messages');
-      const div = document.createElement('div');
-      div.className = `message ${sender}`;
-      div.textContent = content;
-      chatMessages.appendChild(div);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    fetchConversations(); // Inicial
-
-    function toggleDarkMode() {
-      document.body.classList.toggle('dark-mode');
-    }
-  </script>
-
-  <!-- <script>
-    function createConversation() {
-        fetch('/chats/create', {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')  // función para obtener el token
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // redireccionar a la nueva conversación o actualizar la interfaz
-            if (data.redirect_url) {
-            window.location.href = data.redirect_url;
-            }
-        });
-    }
-
-    // Función para extraer CSRF de las cookies
-    function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.startsWith(name + '=')) {
-            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-            break;
-        }
-        }
-    }
-    return cookieValue;
-    }
-  </script> -->
-  <!-- <script src="{% static 'js/chat_2.js' %}"></script> -->
+  <script>let current_conversation = "{{current_conversation.id}}" || null;</script>
+  <script src="{% static 'js/chat.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

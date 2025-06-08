@@ -1,6 +1,7 @@
 {% extends "base/base_chat.html" %}
 {% load static %}
 {% block titulo %}Chat detalle{% endblock %}
+{{current_conversation}}
 {% block contenido %}
 <div class="chat-messages d-flex flex-column" id="chat-messages">
     {% for msj in messages %}
