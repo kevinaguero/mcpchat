@@ -86,6 +86,25 @@ def chat_create(request):
         })
     return JsonResponse({'error': 'No autenticado'}, status=403)
 
+def chat_edit(request,id):
+    
+    if request.user.is_authenticated and request.method == "POST":
+        newname = request.POST.get("newname")
+
+        conversation = Conversation.objects.get(id=id)
+        conversation.name = newname
+        conversation.save()
+
+        return JsonResponse({'message': 'Edición aplicada con éxito'}, status=200)
+    return JsonResponse({'error': 'No autenticado'}, status=403)
+
+def chat_delete(request,id):
+    if request.method == "POST":
+        conversation = Conversation.objects.get(id=id)
+        conversation.delete()
+
+        return JsonResponse({'message': 'Se eliminó el chat con éxito'}, status=200)
+    return JsonResponse({'error': 'No autenticado'}, status=403)
 
 @csrf_exempt
 def chat_message(request):

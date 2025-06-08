@@ -95,6 +95,52 @@
           document.getElementById('chat-title').textContent = conv.name;
           //loadMessages(conv.id);
         };
+
+        const actions = document.createElement('div');
+
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'btn btn-sm btn-outline-warning me-1';
+        renameBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        renameBtn.onclick = async (e) => {
+          e.stopPropagation();
+          id_conv = conv.id
+          const newName = prompt('Nuevo nombre:');
+          if (newName) {
+            //conversations[conv.id].name = newName;
+            const res = await fetch(`/chats/edit/${id_conv}`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': csrftoken},
+              body: `newname=${newName}`
+            });
+            const conv = await res.json();
+            await fetchConversations();
+            //window.location.href = `/chats/edit/${conv.id}`;
+            //renderConversationList();
+          }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.onclick = async (e) => {
+          e.stopPropagation();
+          id_conv = conv.id
+          if (confirm('¿Eliminar esta conversación?')) {
+            const res = await fetch(`/chats/delete/${id_conv}`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': csrftoken}
+            });
+            const conv = await res.json();
+            await fetchConversations();
+          }
+        };
+
+        actions.appendChild(renameBtn);
+        actions.appendChild(deleteBtn);
+        li.appendChild(actions);
+
         chatHistory.appendChild(li);
       });
     }
