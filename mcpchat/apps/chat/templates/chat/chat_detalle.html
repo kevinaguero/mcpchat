@@ -3,6 +3,38 @@
 {% block titulo %}Chat detalle{% endblock %}
 {{current_conversation}}
 {% block contenido %}
+<style>
+    #loading-spinner {
+        margin-top: 10px;
+        margin-left: 5px;
+        display: flex;
+        justify-content: center;
+        align-self: flex-start;
+        
+    }
+
+    .dot-flashing {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background-color: #4e73df;
+        color: #4e73df;
+        animation: dotFlashing 0.5s infinite linear alternate;
+    }
+
+    @keyframes dotFlashing {
+    0% {
+        background-color: #4e73df;
+    }
+    50%,
+    100% {
+        background-color: #cfd4da;
+    }
+    }
+
+</style>
+
 <div class="chat-messages d-flex flex-column" id="chat-messages">
     {% for msj in messages %}
         <div class="message {{msj.sender}}">

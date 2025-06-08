@@ -104,20 +104,37 @@ async function sendMessage() {
     appendMessage('user', message);
     input.value = '';
 
-    try {
-    const res = await fetch('/chats/message/', {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        //'X-CSRFToken': csrftoken
-        },
-        body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
-    });
+    /////////////////
+    // CARGAR SPINNER DE ESPERA
+    const spinnerContainer = document.createElement('div');
+    spinnerContainer.id = 'loading-spinner';
+    spinnerContainer.style.display = 'flex';
+    const dotFlashing = document.createElement('div');
+    dotFlashing.className = 'dot-flashing';
+    spinnerContainer.appendChild(dotFlashing);
+    document.getElementById('chat-messages').appendChild(spinnerContainer);
+    //////////////
 
-    const data = await res.json();
-    appendMessage('bot', data.response);
-    } catch (error) {
-    appendMessage('bot', 'Error en el servidor.');
+    document.getElementById('loading-spinner').style.display = 'flex';
+
+    try {
+        const res = await fetch('/chats/message/', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            //'X-CSRFToken': csrftoken
+            },
+            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
+        });
+
+        const data = await res.json();
+        const spinner = document.getElementById('loading-spinner');
+            if (spinner) {
+            spinner.remove(); // Elimina completamente el elemento del DOM
+        }
+        appendMessage('bot', data.response);
+        } catch (error) {
+        appendMessage('bot', 'Error en el servidor.');
     }   
 }
 
