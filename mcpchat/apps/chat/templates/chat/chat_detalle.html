@@ -1,0 +1,65 @@
+{% extends "base/base_chat.html" %}
+{% load static %}
+{% block titulo %}Chat detalle{% endblock %}
+{% block contenido %}
+<div class="chat-messages d-flex flex-column" id="chat-messages">
+    {% for msj in messages %}
+        <div class="message {{msj.sender}}">
+            {{msj.content}}
+        </div>
+    {% endfor %}
+</div>
+<div class="chat-input">
+    <div class="input-group">
+        <input type="text" id="user-input" class="form-control" placeholder="Escribe tu mensaje..." onkeydown="if (event.key === 'Enter') sendMessage()">
+        <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+    </div>
+</div>
+{% endblock %}
+{% block js%}
+    <!-- <script>
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const messageText = input.value.trim();
+            if (!messageText || !current_conversation) return;
+
+            input.value = '';
+
+            try {
+                const response = await fetch('/chats/message/', {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({ message: messageText },
+                        {conversation:current_conversation}
+                    )
+                });
+                const data = await response.json();
+                
+                console.log("hola mundo");
+                console.log(data);
+                conversations[currentConversation].messages.push({ sender: 'bot', text: data.response || 'Error al obtener respuesta.' });
+                } catch (error) {
+                conversations[currentConversation].messages.push({ sender: 'bot', text: 'Error en el servidor.' });
+            }
+
+            //loadMessages();
+        }
+
+        function loadMessages() {
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = '';
+            if (!currentConversation || !conversations[currentConversation]) return;
+            document.getElementById('chat-title').textContent = conversations[currentConversation].name;
+            
+            conversations[currentConversation].messages.forEach(({ sender, text }) => {
+                const msg = document.createElement('div');
+                msg.className = `message ${sender}`;
+                msg.textContent = text;
+                messagesContainer.appendChild(msg);
+            });
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    </script> -->
+{% endblock %}
