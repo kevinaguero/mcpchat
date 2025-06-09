@@ -74,13 +74,19 @@
           </div>
           <div class="modal-body">
             <form id="settingsForm">
+              <!-- <div class="mb-3">
+                <label for="systemPrompt" class="form-label">Prompt del sistema</label>
+                <input type="text" class="form-control" id="systemPrompt" maxlength="100" value="{{config.system_prompt}}">
+              </div> -->
               <div class="mb-3">
                 <label for="systemPrompt" class="form-label">Prompt del sistema</label>
-                <input type="text" class="form-control" id="systemPrompt" maxlength="100">
+                <textarea id="systemPrompt" name="systemPrompt" class="form-control" rows="3" maxlength="500" placeholder="Escribí el prompt del sistema..." style="resize: none;">{{config.system_prompt}}</textarea>
+                <div class="form-text"><span id="charCount">0</span>/500 caracteres</div>
               </div>
+
               <div class="mb-3">
                 <label for="temperature" class="form-label">Temperatura</label>
-                <input type="number" class="form-control" id="temperature" min="0" max="2" step="0.1">
+                <input type="number" class="form-control" id="temperature" min="0" max="1" step="0.1" value="{{config.temperature}}">
               </div>
               <div class="mb-3">
                 <label for="modelSelect" class="form-label">Modelo GPT</label>

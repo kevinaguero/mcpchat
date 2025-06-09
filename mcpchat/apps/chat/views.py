@@ -3,10 +3,18 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Conversation, Message
 from langchain_anthropic import ChatAnthropic
 from django.shortcuts import get_object_or_404
+from asgiref.sync import sync_to_async
 from django.shortcuts import redirect
+from langchain.tools import Tool
 from langchain_openai import ChatOpenAI
+from langchain.chains import ConversationalRetrievalChain
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.document_loaders import PyPDFLoader
+from langchain.vectorstores import FAISS
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from apps.configuraciones.models import Configuraciones
 from django.views.decorators.http import require_GET
 
 # Create your views here.
@@ -25,20 +33,75 @@ os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY")
 
+config = Configuraciones.load()
+
 config_file = "../browser_mcp.json"
 client = MCPClient.from_config_file(config_file)
-llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
+llm = ChatGroq(model="qwen-qwq-32b", temperature=0) #uso para chats simples
 #llm = ChatAnthropic(model="claude-opus-4-20250514") # uso para conectar base de datos
 #llm = ChatOpenAI(model="gpt-4-turbo") # no se no tengo
 
-agent = MCPAgent(llm=llm, client=client,max_steps=15, memory_enabled=True)
-#disallowed_tools=["file_system", "network"]
+# Cargar el prompt del sistema desde la base de datos o usar uno por defecto
+async def get_system_prompt():
+    return config.system_prompt if config else "Eres un asistente útil."
 
-async def get_response_from_agent(message):
+def get_rag_tool():
+    retriever = get_rag_retriever()
+
+    def rag_search_tool(query: str):
+        docs = retriever.get_relevant_documents(query)
+        return "\n".join([doc.page_content for doc in docs])
+
+    return Tool(
+        name="RAGSearch",
+        func=rag_search_tool,
+        description="Utiliza esta herramienta para buscar información en los documentos PDF cargados."
+    )
+
+# Función para cargar documentos y crear un retriever RAG
+retriever = None
+def get_rag_retriever():
+    global retriever
+    if retriever is None:
+        loader = PyPDFLoader("../guion15anios.pdf")
+        docs = loader.load()
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
+        chunks = text_splitter.split_documents(docs)
+        db = FAISS.from_documents(chunks, OpenAIEmbeddings())
+        retriever = db.as_retriever()
+    return retriever
+
+async def get_response_from_chain(message, history):
+    chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=get_rag_retriever(),
+        return_source_documents=True
+    )
+    result = chain({"question": message, "chat_history": history})
+    return result["answer"]
+
+async def get_response_from_agent(message, history):
+    #rag_tool = get_rag_tool()
+    
+    agent = MCPAgent(
+        llm=llm,
+        client=client,
+        #tools=[rag_tool],
+        memory_enabled=True,
+        max_steps=15,
+        disallowed_tools=["file_system", "network"],
+        system_prompt=await get_system_prompt()  # Se usa el prompt de la DB
+    )
+
+    #for user, bot in history:
+    #    if user:
+    #        await agent.memory.add_user_message(user)
+    #    if bot:
+    #        await agent.memory.add_assistant_message(bot)
+
     response = await agent.run(message)
     #return response[0]['text']
     return response
-
 
 def chat_detalle(request, id):
     if not request.user.is_authenticated:
@@ -67,18 +130,6 @@ def chat_view(request):
         'conversations': Conversation.objects.all()
     })
 
-'''
-def chat_create(request):
-    if request.user.is_authenticated and request.method == "POST":
-        current_conversation = Conversation.objects.create(
-            user=request.user,
-            name="Conversación inicial"
-        )
-
-        return render(request, 'chat/chat_detalle.html',{'current_conversation': current_conversation})
-
-from django.http import JsonResponse
-'''
 def chat_create(request):
     if request.user.is_authenticated and request.method == "POST":
         conversation = Conversation.objects.create(
@@ -130,11 +181,18 @@ def chat_message(request):
             content=user_message
         )
 
+        history = list(
+            Message.objects.filter(conversation=conversation).order_by('timestamp').values_list('sender', 'content')
+        )
+
+        formatted_history = [(msg[1], '') if msg[0] == 'user' else ('', msg[1]) for msg in history[:-1]]
+
         # Obtener respuesta del bot
         if user_message:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            bot_response = loop.run_until_complete(get_response_from_agent(user_message))
+            #bot_response = loop.run_until_complete(get_response_from_chain(user_message, formatted_history))
+            bot_response = loop.run_until_complete(get_response_from_agent(user_message, formatted_history))
 
             # Guardar mensaje del bot
             Message.objects.create(
@@ -145,7 +203,6 @@ def chat_message(request):
 
             return JsonResponse({"response": bot_response})
     return JsonResponse({"error": "Solicitud inválida o no autenticada"}, status=400)
-
 
 @require_GET
 def chat_conversations(request):

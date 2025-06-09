@@ -9,7 +9,7 @@ from django.contrib import messages
 def login_view(request):
     if request.user.is_authenticated:
         # Redirigir al chat si ya está logueado
-        return redirect(reverse("chat:chats"))
+        return redirect(reverse("chat:chat_view"))
     
     if request.method == 'POST':
         username = request.POST["usuario"]

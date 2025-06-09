@@ -115,7 +115,8 @@ async function sendMessage() {
     document.getElementById('chat-messages').appendChild(spinnerContainer);
     //////////////
 
-    document.getElementById('loading-spinner').style.display = 'flex';
+    const spinner = document.getElementById('loading-spinner');
+    spinner.style.display = 'flex';
 
     try {
         const res = await fetch('/chats/message/', {
@@ -128,12 +129,10 @@ async function sendMessage() {
         });
 
         const data = await res.json();
-        const spinner = document.getElementById('loading-spinner');
-            if (spinner) {
-            spinner.remove(); // Elimina completamente el elemento del DOM
-        }
+        spinner.remove();
         appendMessage('bot', data.response);
         } catch (error) {
+        spinner.remove();
         appendMessage('bot', 'Error en el servidor.');
     }   
 }
@@ -170,3 +169,12 @@ function toggleSidebar() {
   // Actualizar el tooltip manualmente
   tooltipInstance.setContent({ '.tooltip-inner': toggleBtn.getAttribute('title') });
 }
+
+//CONFIGURACIONES CHATBOT
+const systemPrompt = document.getElementById('systemPrompt');
+const charCount = document.getElementById('charCount');
+charCount.textContent = systemPrompt.value.length;
+
+systemPrompt.addEventListener('input', () => {
+    charCount.textContent = systemPrompt.value.length;
+});
