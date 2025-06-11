@@ -4,6 +4,15 @@
 {{current_conversation}}
 {% block contenido %}
 <style>
+    #chat-messages {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+
     #loading-spinner {
         margin-top: 10px;
         margin-left: 5px;
@@ -59,10 +68,10 @@
         const html = msg.innerHTML.trim();
 
         // Si usás marked:
-        //msg.innerHTML = marked.parse(html);
+        msg.innerHTML = marked.parse(html);
 
         // O si ya viene como HTML, solo querés resaltar código:
-        msg.innerHTML = html;
+        //msg.innerHTML = html;
 
         // Aplicar resaltado de código con highlight.js
 
