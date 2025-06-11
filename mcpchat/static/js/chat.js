@@ -125,7 +125,7 @@ async function sendMessage() {
             'Content-Type': 'application/x-www-form-urlencoded',
             //'X-CSRFToken': csrftoken
             },
-            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
+            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}&system_prompt=${system_prompt}`
         });
 
         const data = await res.json();
@@ -149,8 +149,19 @@ function appendMessage(sender, content) {
 fetchConversations(); // Inicial
 
 function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
+    const isDarkMode = document.body.classList.toggle('dark-mode');
+
+    // Guardar la preferencia del usuario en el backend
+    fetch('/guardar-modo-oscuro', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+            //'X-CSRFToken': getCSRFToken() // Solo si usás CSRF, como en Django
+        },
+        body: JSON.stringify({ dark_mode: isDarkMode })
+    });
 }
+
 
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');

@@ -28,22 +28,17 @@ from mcp_use import MCPAgent, MCPClient
 import os
 
 # Solo una vez se carga el agente (evitar recrear en cada request)
-load_dotenv()
-os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY")
+#load_dotenv()
+#os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+#os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+#os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY")
 
-config = Configuraciones.load()
-
-config_file = "../browser_mcp.json"
-client = MCPClient.from_config_file(config_file)
-llm = ChatGroq(model="qwen-qwq-32b", temperature=0) #uso para chats simples
+#config_file = "../browser_mcp.json"
+#client = MCPClient.from_config_file(config_file)
+#llm = ChatGroq(model="qwen-qwq-32b", temperature=0) #uso para chats simples
+#llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0) #uso para chats simples
 #llm = ChatAnthropic(model="claude-opus-4-20250514") # uso para conectar base de datos
 #llm = ChatOpenAI(model="gpt-4-turbo") # no se no tengo
-
-# Cargar el prompt del sistema desde la base de datos o usar uno por defecto
-async def get_system_prompt():
-    return config.system_prompt if config else "Eres un asistente útil."
 
 def get_rag_tool():
     retriever = get_rag_retriever()
@@ -80,17 +75,25 @@ async def get_response_from_chain(message, history):
     result = chain({"question": message, "chat_history": history})
     return result["answer"]
 
-async def get_response_from_agent(message, history):
+async def get_response_from_agent(message, history,system_prompt):
     #rag_tool = get_rag_tool()
+    load_dotenv()
+    os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+
+    config_file = "../browser_mcp.json"
+    print("Initializing chat...")
+    client = MCPClient.from_config_file(config_file)
+    llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
     
     agent = MCPAgent(
         llm=llm,
         client=client,
         #tools=[rag_tool],
-        memory_enabled=True,
+        #memory_enabled=True,
         max_steps=15,
         disallowed_tools=["file_system", "network"],
-        system_prompt=await get_system_prompt()  # Se usa el prompt de la DB
+        system_prompt=system_prompt,  # Se usa el prompt de la DB
+        #verbose=True
     )
 
     #for user, bot in history:
@@ -99,7 +102,15 @@ async def get_response_from_agent(message, history):
     #    if bot:
     #        await agent.memory.add_assistant_message(bot)
 
-    response = await agent.run(message)
+    
+    try:
+        # Run the agent with the user input (memory handling is automatic)
+        response = await agent.run(message)
+        print(response)
+
+    except Exception as e:
+        print(f"\nError: {e}")
+
     #return response[0]['text']
     return response
 
@@ -167,6 +178,7 @@ def chat_message(request):
     if request.method == "POST" and request.user.is_authenticated:
         user_message = request.POST.get("message")
         conversation_id = request.POST.get("conversation_id")
+        system_prompt = request.POST.get("system_prompt")
 
         # Buscar la conversación del usuario
         try:
@@ -189,10 +201,11 @@ def chat_message(request):
 
         # Obtener respuesta del bot
         if user_message:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            #loop = asyncio.new_event_loop()
+            #asyncio.set_event_loop(loop)
             #bot_response = loop.run_until_complete(get_response_from_chain(user_message, formatted_history))
-            bot_response = loop.run_until_complete(get_response_from_agent(user_message, formatted_history))
+            #bot_response = loop.run_until_complete(get_response_from_agent(user_message, formatted_history,system_prompt))
+            bot_response = asyncio.run(get_response_from_agent(user_message, formatted_history,system_prompt))
 
             # Guardar mensaje del bot
             Message.objects.create(

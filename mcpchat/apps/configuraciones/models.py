@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.cache import cache
+from django.contrib.auth.models import AbstractUser
 
 # Create your models here.
 class SingletonConfiguracion(models.Model):
@@ -30,9 +31,8 @@ class SingletonConfiguracion(models.Model):
 
 class Configuraciones(SingletonConfiguracion):
 
-    system_prompt = models.CharField(max_length=500)
-    temperature = models.DecimalField(max_digits=10, decimal_places=2)
-    dark_mode = models.BooleanField(default=False)
+    system_prompt = models.CharField(max_length=500,default='Eres un asistente útil.')
+    temperature = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     llms = (
         ('groq', 'qwen-qwq-32b'),
         ('antro', 'claude-opus-4-20250514')
@@ -49,3 +49,7 @@ class Configuraciones(SingletonConfiguracion):
 
     def __str__(self):
         return "Configuraciones"
+
+
+class User(AbstractUser):
+    dark_mode = models.BooleanField(default=False)
