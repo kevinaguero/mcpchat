@@ -37,6 +37,7 @@ class Configuraciones(SingletonConfiguracion):
         ('groq', 'qwen-qwq-32b'),
         ('antro', 'claude-opus-4-20250514')
     )
+    conn_str = models.CharField(max_length=100,default='postgresql://user:pass@ip:port/database',blank=False)
 
     llm = models.CharField(
         max_length=5,

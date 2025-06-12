@@ -125,7 +125,7 @@ async function sendMessage() {
             'Content-Type': 'application/x-www-form-urlencoded',
             //'X-CSRFToken': csrftoken
             },
-            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}&system_prompt=${system_prompt}`
+            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
         });
 
         const data = await res.json();
