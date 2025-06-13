@@ -125,6 +125,7 @@ async def get_response_from_agent(message, history):
         max_steps=15,
         disallowed_tools=["file_system", "network"],
         system_prompt=system_prompt,
+        additional_instructions="Debes hablar siempre en español"
         #system_prompt=config.system_prompt,  # Se usa el prompt de la DB
         #verbose=True
     )
@@ -232,7 +233,6 @@ def chat_delete(request,id):
         return JsonResponse({'message': 'Se eliminó el chat con éxito'}, status=200)
     return JsonResponse({'error': 'No autenticado'}, status=403)
 
-@csrf_exempt
 def chat_message(request):
     if request.method == "POST" and request.user.is_authenticated:
         user_message = request.POST.get("message")
@@ -287,3 +287,11 @@ def chat_conversations(request):
             'name': conv.name
         } for conv in conversations
     ], safe=False)
+
+def chat_dark(request):
+    if request.user.is_authenticated and request.method == "POST":
+        user = request.user
+        user.dark_mode = request.POST.get("dark_mode") == "true"
+        user.save()
+
+        return JsonResponse({'message': 'modo oscuro'}, status=200)

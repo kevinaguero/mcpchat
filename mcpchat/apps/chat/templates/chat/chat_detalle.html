@@ -42,6 +42,34 @@
     }
     }
 
+    .dark-mode code {
+        color: #26ff00; 
+    }
+
+    code {
+        color: #ff6f00; 
+    }
+    
+    pre code {
+        background-color: #ffffff; /* Fondo gris claro */
+        color: #000000;           
+        padding: 10px;
+        border-radius: 5px;
+        display: block;
+        overflow-x: auto;
+        font-family: monospace;
+    }
+
+    .dark-mode pre code {
+        background-color: #000000; /* Fondo gris claro */
+        color: #ffffff;          
+        padding: 10px;
+        border-radius: 5px;
+        display: block;
+        overflow-x: auto;
+        font-family: monospace;
+    }
+
 </style>
 
 <div class="chat-messages d-flex flex-column" id="chat-messages">
@@ -60,23 +88,20 @@
 {% endblock %}
 {% block js%}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
     const messages = document.querySelectorAll(".bot");
 
     messages.forEach(msg => {
         const html = msg.innerHTML.trim();
-
-        // Si usás marked:
         msg.innerHTML = marked.parse(html);
-
-        // O si ya viene como HTML, solo querés resaltar código:
-        //msg.innerHTML = html;
-
-        // Aplicar resaltado de código con highlight.js
-
     });
     });
-
+    
+    hljs.highlightAll();
 </script>
+
+
 {% endblock %}

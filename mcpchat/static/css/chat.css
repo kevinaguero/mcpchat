@@ -69,6 +69,10 @@ body, html {
   background-color: #3a3a3a !important;
 }
 
+.dark-mode .conversation-button.active {
+  background-color: #535151 !important;
+}
+
 .dark-mode .chat-main, .dark-mode .chat-input, .dark-mode .chat-header {
   background-color: #1c1c1c !important;
   color: white;
@@ -119,7 +123,7 @@ body, html {
   cursor: pointer;
 }
 .conversation-button.active {
-  background-color: #6c757d;
+  background-color: #514293;
 }
 .icon-buttons {
   display: flex;
