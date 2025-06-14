@@ -31,8 +31,6 @@ from langchain_groq import ChatGroq
 from mcp_use import MCPAgent, MCPClient
 import os
 
-chat_history = []
-
 def get_config():
     return Configuraciones.load()
 
@@ -64,26 +62,26 @@ def get_rag_retriever():
 load_dotenv()
 #os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
-with open("../browser_mcp.json") as f:
+async def get_response_from_agent(message, history):
+
+    system_prompt = """
+    Eres un asistente de pedidos para un restaurante.
+    Cuando te pregunten algo relacionado con productos o precios, usa la herramienta RAGRetriever para buscar en los documentos del menú.
+    Cuando te pregunten por alguna consulta en la base de datos, usa el mcp de postgres para realizar consultas.
+    """
+
+    #Si te piden que exportes un .csv, vas a identificar la información y la vas a devolver en un formato JSON estructurado SIN AGREGAR MENSAJES ADICIONALES, SÓLO EL JSON y pásalo a la herramienta 'GenerarCSV'.
+
+    additional_instructions = """Debes tener en cuenta el historial del chat y la última pregunta del usuario que podría hacer referencia al contexto en el historial de chat. Debes hablar siempre en español utilizando palabras Argentinas con un tono amistoso y facil de entender."""
+
+    with open("../browser_mcp.json") as f:
         config_file = json.load(f)
 
-# Reemplazar el string de conexión dentro del JSON
-config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
-print(config.conn_str)
-client = MCPClient.from_dict(config_file)
-llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
-
-system_prompt = """
-Eres un asistente de pedidos para un restaurante.
-Cuando te pregunten algo relacionado con productos o precios, usa la herramienta RAGRetriever para buscar en los documentos del menú.
-Cuando te pregunten por alguna consulta en la base de datos, usa el mcp de postgres para realizar consultas.
-Si te piden que exportes un .csv, vas a identificar la información y la vas a devolver en un formato JSON estructurado SIN AGREGAR MENSAJES ADICIONALES, SÓLO EL JSON y pásalo a la herramienta 'GenerarCSV'.
-"""
-
-additional_instructions = """Debes tener en cuenta el historial del chat y la última pregunta del usuario que podría hacer referencia al contexto en el historial de chat.
-Debes hablar siempre en español utilizando palabras Argentinas con un tono amistoso y facil de entender."""
-
-async def get_response_from_agent(message, history):
+    # Reemplazar el string de conexión dentro del JSON
+    config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
+    print(config.conn_str)
+    client = MCPClient.from_dict(config_file)
+    llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
 
     agent = MCPAgent(
         llm=llm,
@@ -122,7 +120,7 @@ async def get_response_from_agent(message, history):
 
     # Agregar herramienta manualmente (evitá sobrescribir las anteriores)
     agent._tools.append(retrieval_tool)
-    agent._tools.append(tool_csv)
+    #agent._tools.append(tool_csv)
 
     # Recrear el agente con la nueva herramienta
     agent._agent_executor = agent._create_agent()
@@ -135,6 +133,7 @@ async def get_response_from_agent(message, history):
            agent.add_to_history(AIMessage(content=bot))
 
     #print("********PRE TRY********")
+    
     try:
         # Run the agent with the user input (memory handling is automatic)
         #response = await agent.run(message)
@@ -148,6 +147,7 @@ async def get_response_from_agent(message, history):
         #print(agent.get_conversation_history())
     except Exception as e:
         print(f"\nError: {e}")
+        response = "Error al generar la respuesta."
 
     #return response[0]['text']
     return response["output"]
@@ -278,6 +278,7 @@ def chat_dark(request):
     
 def generar_csv_dinamico(input_json: str) -> str:
     print("ENTRANDO POR GENERADOR CSV")
+    print(input_json)
     try:
         data = json.loads(input_json)
         print(data)
