@@ -125,7 +125,10 @@ async function sendMessage() {
     const dotFlashing = document.createElement('div');
     dotFlashing.className = 'dot-flashing';
     spinnerContainer.appendChild(dotFlashing);
-    document.getElementById('chat-messages').appendChild(spinnerContainer);
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(spinnerContainer);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
     //////////////
 
     const spinner = document.getElementById('loading-spinner');
@@ -162,8 +165,8 @@ function appendMessage(sender, content) {
         const html = div.innerHTML.trim();
         div.innerHTML = marked.parse(html);
         hljs.highlightAll();
+        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
     }
-    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 fetchConversations(); // Inicial

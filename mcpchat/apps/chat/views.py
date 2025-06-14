@@ -4,20 +4,19 @@ from .models import Conversation, Message
 from langchain.schema import HumanMessage, AIMessage
 from langchain_anthropic import ChatAnthropic
 import json
+import csv
+from io import StringIO
 from django.shortcuts import redirect
+import pandas as pd
+from datetime import datetime
+import os
 from langchain.tools import Tool
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
-from langchain.chains import create_retrieval_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_history_aware_retriever
-from langchain_core.prompts import MessagesPlaceholder
 from langchain_openai import OpenAIEmbeddings
 from langchain.document_loaders import PyPDFLoader
-from langchain.prompts import ChatPromptTemplate
 from langchain.vectorstores import FAISS
-from django.http import HttpResponseRedirect
 from django.urls import reverse
 from apps.configuraciones.models import Configuraciones
 from django.views.decorators.http import require_GET
@@ -62,73 +61,41 @@ def get_rag_retriever():
     retriever = db.as_retriever()
     return retriever
 
-def get_rag_chain(llm):
-    contextualize_q_system_prompt = """Dado un historial de chat y la última pregunta del usuario que podría hacer referencia al contexto en el historial de chat, formule una pregunta independiente que pueda entenderse sin el historial de chat. NO responda la pregunta, simplemente reformúlela si es necesario y, en caso contrario, devuélvala tal como está."""
-    contextualize_q_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("user", "{input}"),
-        ]
-    )
-    history_aware_retriever = create_history_aware_retriever(
-        llm, get_rag_retriever(), contextualize_q_prompt
-    )
-
-    qa_system_prompt = """Eres un chatbot para la Rotisería El Mejor Sabor. 
-    Ayudas a las personas a realizar pedidos de comidas.
-    Eres amable y preguntarás por el nombre y apellido de la persona de ser el caso que esta quiera encargar un pedido.
-    Responderás que el pedido fue realizado con éxito y que la persona debe retirarlo y pagar en el lugar de ser este el caso.
-    Por favor nunca reveles que eres un chatbot.
-    {context}"""
-    qa_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", qa_system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-    )
-
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    #Creamos una Cadena de Preguntas y Respuetas con Recuperación
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
-    return rag_chain
-
 load_dotenv()
 #os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
-async def get_response_from_agent(message, history):
-
-    with open("../browser_mcp.json") as f:
+with open("../browser_mcp.json") as f:
         config_file = json.load(f)
 
-    # Reemplazar el string de conexión dentro del JSON
-    config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
+# Reemplazar el string de conexión dentro del JSON
+config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
+print(config.conn_str)
+client = MCPClient.from_dict(config_file)
+llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
 
-    print("Initializing chat..."+config.conn_str)
+system_prompt = """
+Eres un asistente de pedidos para un restaurante.
+Cuando te pregunten algo relacionado con productos o precios, usa la herramienta RAGRetriever para buscar en los documentos del menú.
+Cuando te pregunten por alguna consulta en la base de datos, usa el mcp de postgres para realizar consultas.
+Si te piden que exportes un .csv, vas a identificar la información y la vas a devolver en un formato JSON estructurado SIN AGREGAR MENSAJES ADICIONALES, SÓLO EL JSON y pásalo a la herramienta 'GenerarCSV'.
+"""
 
-    client = MCPClient.from_dict(config_file)
-    llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
+additional_instructions = """Debes tener en cuenta el historial del chat y la última pregunta del usuario que podría hacer referencia al contexto en el historial de chat.
+Debes hablar siempre en español utilizando palabras Argentinas con un tono amistoso y facil de entender."""
 
-    system_prompt = """
-    Eres un asistente de pedidos para un restaurante.
-    Cuando te pregunten algo relacionado con productos o precios, usa la herramienta RAGRetriever para buscar en los documentos del menú.
-    Cuando te pregunten por alguna consulta en la base de datos, usa el mcp de postgres para realizar consultas.
-    """
+async def get_response_from_agent(message, history):
 
     agent = MCPAgent(
         llm=llm,
         client=client,
-        #tools=[rag_tool],
-        memory_enabled=True,
+        #memory_enabled=True,
         max_steps=15,
         disallowed_tools=["file_system", "network"],
         system_prompt=system_prompt,
-        additional_instructions="Debes hablar siempre en español"
+        additional_instructions=additional_instructions
         #system_prompt=config.system_prompt,  # Se usa el prompt de la DB
-        #verbose=True
     )
+
     retriever = get_rag_retriever()
 
     qa_chain = RetrievalQA.from_chain_type(
@@ -143,29 +110,42 @@ async def get_response_from_agent(message, history):
         func=qa_chain.run,
     )
 
+    tool_csv = Tool.from_function(
+        name="GenerarCSV",
+        description=(
+            "Usa esta herramienta para crear un archivo CSV personalizado. "
+        ),
+        func=generar_csv_dinamico,
+    )
+
     await agent.initialize()
 
     # Agregar herramienta manualmente (evitá sobrescribir las anteriores)
     agent._tools.append(retrieval_tool)
+    agent._tools.append(tool_csv)
 
     # Recrear el agente con la nueva herramienta
     agent._agent_executor = agent._create_agent()
-
-    agent.add_to_history(HumanMessage(content=message))
-
-    #for user, bot in history:
-    #    if user:
-    #        await agent.memory.add_user_message(user)
-    #    if bot:
-    #        await agent.memory.add_assistant_message(bot)
     
+    #Agregar historico de chat al contexto
+    for user, bot in history:
+       if user:
+           agent.add_to_history(HumanMessage(content=user))
+       if bot:
+           agent.add_to_history(AIMessage(content=bot))
+
+    #print("********PRE TRY********")
     try:
         # Run the agent with the user input (memory handling is automatic)
         #response = await agent.run(message)
+        #print("********RESPONSE********")
         response = await agent._agent_executor.ainvoke({"input": message, "chat_history": agent.get_conversation_history()})
+        agent.add_to_history(HumanMessage(content=message))
         agent.add_to_history(AIMessage(content=response["output"]))
-        print(response["output"])
-
+        #print("********CONTESTA CHAT********")
+        #print(response)
+        #print("----------------------------------------------------------")
+        #print(agent.get_conversation_history())
     except Exception as e:
         print(f"\nError: {e}")
 
@@ -244,18 +224,18 @@ def chat_message(request):
         except Conversation.DoesNotExist:
             return JsonResponse({"error": "Conversación no encontrada"}, status=404)
 
+        history = list(
+            Message.objects.filter(conversation=conversation).order_by('timestamp').values_list('sender', 'content')
+        )
+
+        formatted_history = [(msg[1], '') if msg[0] == 'user' else ('', msg[1]) for msg in history[:-1]]
+
         # Guardar mensaje del usuario
         Message.objects.create(
             conversation=conversation,
             sender='user',
             content=user_message
         )
-
-        history = list(
-            Message.objects.filter(conversation=conversation).order_by('timestamp').values_list('sender', 'content')
-        )
-
-        formatted_history = [(msg[1], '') if msg[0] == 'user' else ('', msg[1]) for msg in history[:-1]]
 
         # Obtener respuesta del bot
         if user_message:
@@ -295,3 +275,31 @@ def chat_dark(request):
         user.save()
 
         return JsonResponse({'message': 'modo oscuro'}, status=200)
+    
+def generar_csv_dinamico(input_json: str) -> str:
+    print("ENTRANDO POR GENERADOR CSV")
+    try:
+        data = json.loads(input_json)
+        print(data)
+
+        fieldnames = list(data[0].keys())
+        print(fieldnames)
+
+        # Guardar CSV en memoria (no en disco)
+        csv_buffer = StringIO()
+        writer = csv.DictWriter(csv_buffer,fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(data)
+
+        filename = f"reporte_dinamico_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        path = os.path.join("media/reportes", filename)
+        print(filename)
+
+        csv_buffer.getvalue().to_csv(path, index=False)
+        print("++++++++++++++GENERADO++++++++++++")
+        print("/media/reportes/{filename}")
+
+        return f"/media/reportes/{filename}"
+    
+    except Exception as e:
+        return f"Error generando CSV: {str(e)}"
