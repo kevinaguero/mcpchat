@@ -1,0 +1,3 @@
+numero_derivacion,numero_afiliado,nombre_afiliado,edad_afiliado,fecha_solicitud,fecha_inicio,fecha_autorizado,fecha_fin,dias_derivado,tratamiento,cobertura,derivado_a,usuario_alta,auditado_por,estado,prestador_derivado,medico_derivador
+2,04-116682-00,"DIAZ, LUIS ALBERTO",70,2022-07-15,2022-08-01,0001-01-01,2022-08-01,14,TRAUMATOLÓGICO,COBERTURA GENERAL,DELEGACION CORDOBA,LCHEBEL,AUDEACEVEDO,ANU,SANATORIO ALLENDE S.A. (CBA),
+4,01-014406-00,"REYNOSO, JUANA LIBERATA",83,2022-07-18,2022-08-02,2022-07-18,2022-08-02,15,GASTROENTEROLÓGICO,COBERTURA GENERAL,DELEGACION CORDOBA,NASANTILLAN,AUDEACEVEDO,AUT,SANATORIO ALLENDE S.A. (CBA),DIAZ FATIMA ALEJANDRA

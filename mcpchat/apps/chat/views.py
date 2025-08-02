@@ -16,6 +16,7 @@ from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import Docx2txtLoader
 from langchain.vectorstores import FAISS
 from django.urls import reverse
 from apps.configuraciones.models import Configuraciones
@@ -51,6 +52,7 @@ config = get_config()
 
 # Función para cargar documentos y crear un retriever RAG
 def get_rag_retriever():
+    #loader = Docx2txtLoader("../vistas.docx")
     loader = PyPDFLoader("../vistas.pdf")
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
@@ -68,6 +70,7 @@ async def get_response_from_agent(message, history):
     Eres un asistente especializado en consultas para el nivel gerencial de OSEP.
     - Si te saludan, debes presentarte indicando tu propósito: asistir en consultas y reportes vinculados a la gestión de OSEP.
     - Si te solicitan generar un informe o consultar registros, utiliza la conexión MCP a la base de datos PostgreSQL para realizar las consultas necesarias.
+    - Si te piden generar un CSV utiliza la conexión MCP a la herramienta GenerarCSV y enviale la información en formato JSON estructurado que sea una lista de diccionarios, donde cada diccionario represente una fila con los nombres de columna como claves. No agregues ningún texto adicional. El JSON debe comenzar con [ y terminar con ], y todas las claves deben estar entre comillas dobles.
     - Si no comprendes completamente una solicitud, utiliza la herramienta RAGRetriever para buscar información relevante en la documentación de las vistas.
     - Puedes generar gráficos o paneles tipo dashboard para facilitar la interpretación visual de los datos.
     - Si te preguntan algo que excede tu conocimiento o no está relacionado con tu propósito, debes indicarlo con claridad y recordar tu función como asistente de soporte gerencial.
@@ -84,7 +87,7 @@ async def get_response_from_agent(message, history):
     config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
     print(config.conn_str)
     client = MCPClient.from_dict(config_file)
-    llm = ChatGroq(model="qwen/qwen3-32b") #uso para chats simples
+    llm = ChatGroq(model="qwen/qwen3-32b", temperature=0) #uso para chats simples
 
     agent = MCPAgent(
         llm=llm,
@@ -128,7 +131,7 @@ async def get_response_from_agent(message, history):
 
     # Agregar herramienta manualmente (evitá sobrescribir las anteriores)
     agent._tools.append(retrieval_tool)
-    #agent._tools.append(tool_csv)
+    agent._tools.append(tool_csv)
 
 
     # Recrear el agente con la nueva herramienta
@@ -288,27 +291,28 @@ def chat_dark(request):
 
         return JsonResponse({'message': 'modo oscuro'}, status=200)
     
+
 def generar_csv_dinamico(input_json: str) -> str:
     print("ENTRANDO POR GENERADOR CSV")
-    print(input_json)
+    #print(input_json)
+
     try:
         data = json.loads(input_json)
         print(data)
-
         fieldnames = list(data[0].keys())
-        print(fieldnames)
 
-        # Guardar CSV en memoria (no en disco)
-        csv_buffer = StringIO()
+        csv_buffer = StringIO(newline="")
         writer = csv.DictWriter(csv_buffer,fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(data)
 
-        filename = f"reporte_dinamico_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"reporte_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         path = os.path.join("media/reportes", filename)
         print(filename)
 
-        csv_buffer.getvalue().to_csv(path, index=False)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(csv_buffer.getvalue())
+
         print("++++++++++++++GENERADO++++++++++++")
         print("/media/reportes/{filename}")
 
