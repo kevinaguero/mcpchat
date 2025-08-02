@@ -10,3 +10,4 @@ wheels/
 .venv
 .idea/
 configuraciones_locales.py
+/media/reportes/*

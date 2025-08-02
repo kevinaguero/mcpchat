@@ -1,6 +1,13 @@
 {% extends "base/base_chat.html" %}
 {% block titulo %}Chat{% endblock %}
 {% block contenido %}
-  <h5>Hola soy un chat amistoso de OSEP</h5>
+<div class="container">
+  <h5>Hola! Soy un asistente especializado en consultas para el nivel gerencial de OSEP.</h5>
+</div>
+
+<!-- Mostramos el gráfico generado por Plotly -->
+<div class="w-50">
+  {{ grafico|safe }}
+</div>
 {% endblock %}
 {% block js%}{% endblock %}

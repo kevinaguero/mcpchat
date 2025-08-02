@@ -15,7 +15,7 @@
     <div class="chat-sidebar" id="sidebar">
       
       <a href="{% url 'chat:chat_view' %}" class="conversation-button d-block text-decoration-none">
-        <h4>💬 Chat OSEP</h4>
+        <h4>Chat OSEP <span style="color: red; font-weight: bold;">ALFA</span></h4>
       </a>
       <h5>Historial de chats</h5>
 
@@ -23,6 +23,8 @@
         
       </ul>
       <button class="btn btn-light btn-sm w-100 mt-3" onclick="createConversation()">+ Nueva conversación</button>
+      <a href="{% url 'chat:mostrar_grafico' %}" class="btn btn-primary btn-sm w-100 mt-3">Dashboard</a>
+
     </div>
 
     <div class="chat-main">
@@ -30,13 +32,13 @@
         <button class="btn btn-sm btn-outline-secondary btn-user-icon" id="toggleSidebarBtn" type="button" onclick="toggleSidebar()" data-bs-toggle="tooltip" title="Ocultar barra lateral">
             <i class="bi bi-list"></i>
         </button>
-        <h5 class="mb-0" id="chat-title">
+        <h4 class="mb-0" id="chat-title">
           {% if current_conversation %}
             {{ current_conversation }}
           {% else %}
-            Hola! ¿En qué te puedo ayudar?
+            Chat OSEP <span style="color: red; font-weight: bold;">ALFA</span>
           {% endif %}
-        </h5>
+        </h4>
         <div class="d-flex align-items-center gap-2">
           <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary btn-user-icon" type="button" id="accountDropdown" data-bs-toggle="dropdown" aria-expanded="false">

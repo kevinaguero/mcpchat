@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Conversation, Message
 from langchain.schema import HumanMessage, AIMessage
 from langchain_anthropic import ChatAnthropic
+import plotly.express as px
 import json
 import csv
 from io import StringIO
@@ -16,7 +17,6 @@ from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain.document_loaders import PyPDFLoader
-from langchain.document_loaders import Docx2txtLoader
 from langchain.vectorstores import FAISS
 from django.urls import reverse
 from apps.configuraciones.models import Configuraciones
@@ -117,7 +117,7 @@ async def get_response_from_agent(message, history):
     tool_csv = Tool.from_function(
         name="GenerarCSV",
         description=(
-            "Usa esta herramienta para crear un archivo CSV personalizado. "
+            "Usa esta herramienta para crear un archivo CSV personalizado."
         ),
         func=generar_csv_dinamico,
     )
@@ -291,6 +291,20 @@ def chat_dark(request):
 
         return JsonResponse({'message': 'modo oscuro'}, status=200)
     
+def mostrar_grafico(request):
+    # Datos de ejemplo (podrías traerlos de la BD con pandas.read_sql)
+    df = pd.DataFrame({
+        "Categoría": ["Pizzas", "Hamburguesas", "Empanadas"],
+        "Cantidad": [150, 120, 180]
+    })
+
+    # Crear gráfico Plotly
+    fig = px.bar(df, x="Categoría", y="Cantidad", title="Pedidos por tipo")
+
+    # Convertir el gráfico a HTML embebido (sin <html>, solo el gráfico)
+    grafico_html = fig.to_html(full_html=False)
+
+    return render(request, "chat/chat.html", {"grafico": grafico_html})
 
 def generar_csv_dinamico(input_json: str) -> str:
     print("ENTRANDO POR GENERADOR CSV")
@@ -320,3 +334,5 @@ def generar_csv_dinamico(input_json: str) -> str:
     
     except Exception as e:
         return f"Error generando CSV: {str(e)}"
+
+
