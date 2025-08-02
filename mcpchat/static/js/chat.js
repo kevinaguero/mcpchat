@@ -134,24 +134,18 @@ async function sendMessage() {
     const spinner = document.getElementById('loading-spinner');
     spinner.style.display = 'flex';
 
-    try {
-        const res = await fetch('/chats/message/', {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': csrftoken
-            },
-            body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
-        });
+    const res = await fetch('/chats/message/', {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrftoken
+        },
+        body: `message=${encodeURIComponent(message)}&conversation_id=${current_conversation}`
+    });
 
-        const data = await res.json();
-        spinner.remove();
-        appendMessage('bot', data.response);
-        
-        } catch (error) {
-        spinner.remove();
-        appendMessage('bot', 'Error en el servidor.');
-    }   
+    const data = await res.json();
+    spinner.remove();
+    appendMessage('bot', data.response);
 }
 
 function appendMessage(sender, content) {

@@ -51,7 +51,7 @@ config = get_config()
 
 # Función para cargar documentos y crear un retriever RAG
 def get_rag_retriever():
-    loader = PyPDFLoader("../menu.pdf")
+    loader = PyPDFLoader("../vistas.pdf")
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
     chunks = text_splitter.split_documents(docs)
@@ -65,9 +65,12 @@ load_dotenv()
 async def get_response_from_agent(message, history):
 
     system_prompt = """
-    Eres un asistente de pedidos para un restaurante.
-    Cuando te pregunten algo relacionado con productos o precios, usa la herramienta RAGRetriever para buscar en los documentos del menú.
-    Cuando te pregunten por alguna consulta en la base de datos, usa el mcp de postgres para realizar consultas.
+    Eres un asistente especializado en consultas para el nivel gerencial de OSEP.
+    - Si te saludan, debes presentarte indicando tu propósito: asistir en consultas y reportes vinculados a la gestión de OSEP.
+    - Si te solicitan generar un informe o consultar registros, utiliza la conexión MCP a la base de datos PostgreSQL para realizar las consultas necesarias.
+    - Si no comprendes completamente una solicitud, utiliza la herramienta RAGRetriever para buscar información relevante en la documentación de las vistas.
+    - Puedes generar gráficos o paneles tipo dashboard para facilitar la interpretación visual de los datos.
+    - Si te preguntan algo que excede tu conocimiento o no está relacionado con tu propósito, debes indicarlo con claridad y recordar tu función como asistente de soporte gerencial.
     """
 
     #Si te piden que exportes un .csv, vas a identificar la información y la vas a devolver en un formato JSON estructurado SIN AGREGAR MENSAJES ADICIONALES, SÓLO EL JSON y pásalo a la herramienta 'GenerarCSV'.
@@ -81,7 +84,7 @@ async def get_response_from_agent(message, history):
     config_file["mcpServers"]["postgres"]["args"][2] = config.conn_str
     print(config.conn_str)
     client = MCPClient.from_dict(config_file)
-    llm = ChatGroq(model="qwen-qwq-32b") #uso para chats simples
+    llm = ChatGroq(model="qwen/qwen3-32b") #uso para chats simples
 
     agent = MCPAgent(
         llm=llm,
@@ -118,12 +121,20 @@ async def get_response_from_agent(message, history):
 
     await agent.initialize()
 
+    agent._tools = [
+        tool for tool in agent._tools 
+        if tool.name.lower() in {"vw_derivaciones_database_schema", "query"}
+    ]
+
     # Agregar herramienta manualmente (evitá sobrescribir las anteriores)
     agent._tools.append(retrieval_tool)
     #agent._tools.append(tool_csv)
 
+
     # Recrear el agente con la nueva herramienta
     agent._agent_executor = agent._create_agent()
+
+    print(f"✅ Tools activas: {[tool.name for tool in agent._tools]}")
     
     #Agregar historico de chat al contexto
     for user, bot in history:
@@ -133,7 +144,8 @@ async def get_response_from_agent(message, history):
            agent.add_to_history(AIMessage(content=bot))
 
     #print("********PRE TRY********")
-    
+    response = {}
+
     try:
         # Run the agent with the user input (memory handling is automatic)
         #response = await agent.run(message)
@@ -147,7 +159,7 @@ async def get_response_from_agent(message, history):
         #print(agent.get_conversation_history())
     except Exception as e:
         print(f"\nError: {e}")
-        response = "Error al generar la respuesta."
+        response["output"] = f"¡Ups! Ha ocurrido un error: \n\n {str(e)}"
 
     #return response[0]['text']
     return response["output"]
