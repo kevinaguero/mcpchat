@@ -2,8 +2,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from .models import Conversation, Message
 from langchain.schema import HumanMessage, AIMessage
+from functools import partial
 from langchain_anthropic import ChatAnthropic
 import plotly.express as px
+import ast
 import json
 import csv
 from io import StringIO
@@ -20,6 +22,7 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.vectorstores import FAISS
 from django.urls import reverse
 from apps.configuraciones.models import Configuraciones
+from apps.dashboard.models import Dashboard
 from django.views.decorators.http import require_GET
 
 # Create your views here.
@@ -64,15 +67,14 @@ def get_rag_retriever():
 load_dotenv()
 #os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
-async def get_response_from_agent(message, history):
+async def get_response_from_agent(message, history,user):
 
     system_prompt = """
     Eres un asistente especializado en consultas para el nivel gerencial de OSEP.
     - Si te saludan, debes presentarte indicando tu propósito: asistir en consultas y reportes vinculados a la gestión de OSEP.
     - Si te solicitan generar un informe o consultar registros, utiliza la conexión MCP a la base de datos PostgreSQL para realizar las consultas necesarias.
     - Si te piden generar un CSV utiliza la conexión MCP a la herramienta GenerarCSV y enviale la información en formato JSON estructurado que sea una lista de diccionarios, donde cada diccionario represente una fila con los nombres de columna como claves. No agregues ningún texto adicional. El JSON debe comenzar con [ y terminar con ], y todas las claves deben estar entre comillas dobles.
-    - Si no comprendes completamente una solicitud, utiliza la herramienta RAGRetriever para buscar información relevante en la documentación de las vistas.
-    - Puedes generar gráficos o paneles tipo dashboard para facilitar la interpretación visual de los datos.
+    - Si te piden generar un gráfico utiliza la conexión MCP a la herramienta GenerarDashboard y enviale la información titulo y datos. IMPORTANTE LOS DATOS DEBEN TENER EL FORMATO CON LOS NOMBRES "categoria" Y "valor". En lo posible ordena de menor a mayor los valores.
     - Si te preguntan algo que excede tu conocimiento o no está relacionado con tu propósito, debes indicarlo con claridad y recordar tu función como asistente de soporte gerencial.
     """
 
@@ -122,6 +124,14 @@ async def get_response_from_agent(message, history):
         func=generar_csv_dinamico,
     )
 
+    tool_dashboard = Tool.from_function(
+        name="GenerarDashboard",
+        description=(
+            "Envía como parámetro un diccionario que incluya el titulo y los datos."
+        ),
+        func=partial(generar_dashboard, user=user),
+    )
+
     await agent.initialize()
 
     agent._tools = [
@@ -132,7 +142,7 @@ async def get_response_from_agent(message, history):
     # Agregar herramienta manualmente (evitá sobrescribir las anteriores)
     agent._tools.append(retrieval_tool)
     agent._tools.append(tool_csv)
-
+    agent._tools.append(tool_dashboard)
 
     # Recrear el agente con la nueva herramienta
     agent._agent_executor = agent._create_agent()
@@ -258,7 +268,7 @@ def chat_message(request):
             #asyncio.set_event_loop(loop)
             #bot_response = loop.run_until_complete(get_response_from_chain(user_message, formatted_history))
             #bot_response = loop.run_until_complete(get_response_from_agent(user_message, formatted_history,system_prompt))
-            bot_response = asyncio.run(get_response_from_agent(user_message, formatted_history))
+            bot_response = asyncio.run(get_response_from_agent(user_message, formatted_history,request.user))
 
             # Guardar mensaje del bot
             Message.objects.create(
@@ -291,20 +301,27 @@ def chat_dark(request):
 
         return JsonResponse({'message': 'modo oscuro'}, status=200)
     
-def mostrar_grafico(request):
-    # Datos de ejemplo (podrías traerlos de la BD con pandas.read_sql)
-    df = pd.DataFrame({
-        "Categoría": ["Pizzas", "Hamburguesas", "Empanadas"],
-        "Cantidad": [150, 120, 180]
-    })
+def generar_dashboard(input_json: str, user) -> str:
+    print("********GENERANDO DASHBOARD*********")
+    
+    try:
+        datos_dict = ast.literal_eval(input_json)  # convierte string a dict
+        dashboard = Dashboard.objects.create(
+            user=user,
+            name=datos_dict["titulo"],
+            datos_json=datos_dict
+        )
+        print("********OBJETO CREADO*********")
+        print(datos_dict)
 
-    # Crear gráfico Plotly
-    fig = px.bar(df, x="Categoría", y="Cantidad", title="Pedidos por tipo")
+        dashboard.save()
 
-    # Convertir el gráfico a HTML embebido (sin <html>, solo el gráfico)
-    grafico_html = fig.to_html(full_html=False)
-
-    return render(request, "chat/chat.html", {"grafico": grafico_html})
+        print(dashboard.id)
+        
+        return f"Panel generado exitosamente en enlace: /dashboard/{dashboard.id}"
+    
+    except Exception as e:
+        return f"Error generando CSV: {str(e)}"
 
 def generar_csv_dinamico(input_json: str) -> str:
     print("ENTRANDO POR GENERADOR CSV")

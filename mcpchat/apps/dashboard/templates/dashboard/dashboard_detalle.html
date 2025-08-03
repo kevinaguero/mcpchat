@@ -1,0 +1,29 @@
+{% extends "base/base_chat.html" %}
+
+{% block titulo %}Dashboard Detalle{% endblock %}
+
+{% block contenido %}
+<div class="container py-1" style="max-width: 1200px;">
+  <h4 class="mb-4 text-center">{{titulo}}</h4>
+
+  <div class="d-flex flex-row overflow-auto gap-3 pb-2" style="min-height: 550px;">
+    <div class="p-3 bg-white rounded shadow-sm min-width-graph">
+      {{ barra_vertical|safe }}
+    </div>
+    <div class="p-3 bg-white rounded shadow-sm min-width-graph">
+      {{ torta|safe }}
+    </div>
+    <div class="p-3 bg-white rounded shadow-sm min-width-graph">
+      {{ anillo|safe }}
+    </div>
+    <div class="p-3 bg-white rounded shadow-sm min-width-graph">
+      {{ linea|safe }}
+    </div>
+    <div class="p-3 bg-white rounded shadow-sm min-width-graph">
+      {{ barra_horizontal|safe }}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}{% endblock %}

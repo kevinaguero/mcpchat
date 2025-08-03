@@ -11,5 +11,4 @@ urlpatterns = [
     path('/conversations/', views.chat_conversations, name='chat_conversations'),
     path('/<int:id>', views.chat_detalle, name='chat_detalle'),
     path('/chat_dark/', views.chat_dark, name='chat_dark'),
-    path('/grafico/', views.mostrar_grafico, name='mostrar_grafico'),
 ]

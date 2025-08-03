@@ -138,3 +138,13 @@ body, html {
 .icon-buttons button:hover {
   color: #ffffff;
 }
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #252525 #f0f0f0;  /* Scroll azul, fondo gris claro */
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #252525;         /* Azul vibrante */
+}

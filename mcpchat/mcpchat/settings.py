@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.chat',
     'apps.index',
     'apps.configuraciones',
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [

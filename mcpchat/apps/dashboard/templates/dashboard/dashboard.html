@@ -1,0 +1,28 @@
+{% extends "base/base_chat.html" %}
+{% block titulo %}Dashboard{% endblock %}
+{% block contenido %}
+<div class="container py-1">
+    <h2 class="mb-4 text-center">Panel Dashboard</h2>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 m-3">
+        <!-- Repetir este bloque por cada dashboard -->
+        {% for dashboard in dashboards %}
+          <div class="col">
+              <div class="card shadow-sm h-100">
+                  <div class="card-body d-flex flex-column">
+                      <h5 class="card-title">📊{{dashboard.name}}</h5>
+                      <p class="card-text mb-1"><strong>ID:</strong> #{{dashboard.id}}</p>
+                      <p class="card-text mb-1"><strong>Autor:</strong> {{dashboard.user.username}}</p>
+                      <p class="card-text mb-3"><strong>Fecha:</strong> {{dashboard.created_at}}</p>
+                      <a href="{% url 'dashboard:dashboard_detalle' dashboard.id %}" class="btn btn-primary mt-auto">Ver panel</a>
+                  </div>
+              </div>
+          </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+
+{% endblock %}
+{% block js %}{% endblock %}
